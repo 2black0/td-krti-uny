@@ -329,15 +329,12 @@ def callback(data):
         track_detected = False
         pass
     if lane_left == True:
-        speed = 6.3
+        speed = 6.75
     else:
         speed = 9.3
     factor = 0.09
     speed = speed - abs(deviation) ** 2
-    if curveRad <= 300:
-        speed = 6
-        factor = 0.04
-    elif curveRad <= 400:
+    if curveRad <= 400:
         speed = 6
         factor = 0.05
     elif curveRad <= 500:
