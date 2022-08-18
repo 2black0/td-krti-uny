@@ -2,6 +2,7 @@
 from itertools import count
 from operator import le
 from subprocess import call
+from telnetlib import Telnet
 from tkinter.tix import Tree
 from turtle import right
 from typing import Counter
@@ -26,6 +27,7 @@ minimum_distance = 80
 start_time = time.time()
 display_time = 2
 track_detected = True
+lane_left = False
 fc = 0
 FPS = 0
 
@@ -37,7 +39,7 @@ def callback0(data):
 
 
 def callback(data):
-    global avoidance, oldtime, steering_angle, speed, track_detected, start_time, display_time, fc, FPS
+    global avoidance, oldtime, steering_angle, speed, lane_left, track_detected, start_time, display_time, fc, FPS
     ym_per_pix = 30 / 800
     xm_per_pix = 3.7 / 800
     velocity_publisher = rospy.Publisher("/catvehicle/cmd_vel_safe", Twist, queue_size=1)
@@ -68,9 +70,9 @@ def callback(data):
         return image, hls_result, gray, thresh, blur, canny
 
     def perspectiveWarp(inpImage):
-        global avoidance, oldtime, steering_angle, speed
+        global avoidance, oldtime, steering_angle, lane_left, speed
         img_size = (inpImage.shape[1], inpImage.shape[0])
-        src = np.float32([[310, 455], [785, 455], [130, 605], [1500, 605]])
+        src = np.float32([[315, 455], [785, 455], [130, 605], [1500, 605]])
         dst = np.float32([[200, 0], [1200, 0], [200, 710], [1200, 710]])
         matrix = cv2.getPerspectiveTransform(src, dst)
         minv = cv2.getPerspectiveTransform(dst, src)
@@ -102,31 +104,27 @@ def callback(data):
             cv2.LINE_AA,
         )
         if len(contoursL) ** 2 >= 16:
+            lane_left = False
             cv2.putText(
                 img, "Position : Right Lane", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (102, 255, 0), 2, cv2.LINE_AA
             )
             if avoidance == 1:
-                steering_angle = 1.2
+                steering_angle = 1
                 obstacle()
             else:
                 steering_angle = 0
-            if minimum_distance <= 15:
-                steering_angle = 2
-                obstacle()
         elif len(contoursL) ** 2 <= 9:
+            lane_left = True
             cv2.putText(
                 img, "Position : Left Lane", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (102, 255, 0), 2, cv2.LINE_AA
             )
+            if minimum_distance <= 20:
+                steering_angle = -1
+                obstacle()
             if avoidance == 0:
-                steering_angle = -1.2
+                steering_angle = -1
             else:
                 steering_angle = 0
-            if minimum_distance <= 20 and avoidance == 0:
-                steering_angle = -3
-                obstacle()
-            # if minimum_distance <=10:
-            # move(2,-3)
-            # obstacle()
         return birdseye, birdseyeLeft, birdseyeRight, minv
 
     def plotHistogram(inpImage):
@@ -330,7 +328,10 @@ def callback(data):
         finalImg = image
         track_detected = False
         pass
-    speed = 9.3
+    if lane_left == True:
+        speed = 6.3
+    else:
+        speed = 9.3
     factor = 0.09
     speed = speed - abs(deviation) ** 2
     if curveRad <= 300:
