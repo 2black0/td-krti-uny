@@ -89,7 +89,7 @@ def callback(data):
             oldtime = int(time.time())
             avoidance = 1
         current_time = int(time.time())
-        if current_time >= oldtime + 3:
+        if current_time >= oldtime + 4:
             avoidance = 0
         cv2.putText(
             img,
@@ -121,6 +121,9 @@ def callback(data):
                 steering_angle = -1.2
             else:
                 steering_angle = 0
+            if minimum_distance <= 20 and avoidance == 0:
+                steering_angle = -3
+                obstacle()
             # if minimum_distance <=10:
             # move(2,-3)
             # obstacle()
@@ -328,8 +331,8 @@ def callback(data):
         track_detected = False
         pass
     speed = 9.3
-    factor = 0.08
-    speed = speed - abs(steering_angle) ** 2
+    factor = 0.09
+    speed = speed - abs(deviation) ** 2
     if curveRad <= 300:
         speed = 6
         factor = 0.04
