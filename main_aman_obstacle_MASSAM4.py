@@ -22,12 +22,9 @@ from std_msgs.msg import Float64
 bridge = CvBridge()
 avoidance = 0
 oldtime = 0
-angle = -1
-obstacle_number = 0
 steering_angle = 0
 speed = 0
 minimum_distance = 80
-deviation = 0
 start_time = time.time()
 start_ros_time = 0
 status_ros = False
@@ -46,7 +43,7 @@ def callback0(data):
 
 
 def callback(data):
-    global avoidance, angle, obstacle_number, oldtime, status_ros, start_ros_time, steering_angle, speed, lane_left, track_detected, start_time, display_time, fc, FPS
+    global avoidance, oldtime, status_ros, start_ros_time, steering_angle, speed, lane_left, track_detected, start_time, display_time, fc, FPS
     if status_ros == False:
         start_ros_time = rospy.get_rostime()
         status_ros = True
@@ -80,10 +77,9 @@ def callback(data):
         return image, hls_result, gray, thresh, blur, canny
 
     def perspectiveWarp(inpImage):
-        global avoidance, angle, obstacle_number, oldtime, steering_angle, lane_left, speed, deviation
-        speed = 0
+        global avoidance, oldtime, steering_angle, lane_left, speed
         img_size = (inpImage.shape[1], inpImage.shape[0])
-        src = np.float32([[314, 455], [785, 455], [130, 610], [1500, 610]])
+        src = np.float32([[315, 455], [785, 455], [130, 605], [1500, 605]])
         dst = np.float32([[200, 0], [1200, 0], [200, 710], [1200, 710]])
         matrix = cv2.getPerspectiveTransform(src, dst)
         minv = cv2.getPerspectiveTransform(dst, src)
@@ -98,18 +94,15 @@ def callback(data):
         grayImageL = cv2.cvtColor(birdseyeLeft, cv2.COLOR_BGR2GRAY)
         (thresh, blackAndWhiteImageL) = cv2.threshold(grayImageL, 127, 255, cv2.THRESH_BINARY)
         contoursL, hierarchy = cv2.findContours(blackAndWhiteImageL, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        # avoidance =0
+        avoidance = 0
         variable_time = rospy.get_rostime()
-        print(avoidance)
-        if minimum_distance <= 15 and avoidance == 0:
+
+        if minimum_distance <= 12 and avoidance == 0:
             oldtime = float(variable_time.to_sec())
             avoidance = 1
-            obstacle_number = obstacle_number + 1
         current_time = float(variable_time.to_sec())
-        if current_time >= oldtime + 1 and oldtime != 0:
+        if current_time >= oldtime + 2:
             avoidance = 2
-        if current_time >= oldtime + 2 and oldtime != 0:
-            steering_angle = 4
         cv2.putText(
             img,
             "Obstacle Range : " + str(int(minimum_distance)),
@@ -120,70 +113,33 @@ def callback(data):
             2,
             cv2.LINE_AA,
         )
-
-        if obstacle_number == 1:
-            angle = -4
-        elif obstacle_number == 2:
-            angle = -0.1
-        elif obstacle_number == 3:
-            angle = -1
-        elif obstacle_number == 4:
-            angle = -1
-        elif obstacle_number == 5:
-            angle = -1
-        elif obstacle_number == 6:
-            angle = -1
-        elif obstacle_number == 7:
-            angle = -1
-        elif obstacle_number == 8:
-            angle = -1
-        elif obstacle_number == 9:
-            angle = -1
-        elif obstacle_number == 10:
-            angle = -1
-
-        print(angle)
-        deviation = 0
-        if len(contoursL) ** 2 <= 9:
-            lane_left = True
-            cv2.putText(
-                img, "Position : Left Lane", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (102, 255, 0), 2, cv2.LINE_AA
-            )
-            if minimum_distance <= 20:
-                steering_angle = -0.4
-                obstacle()
-            if avoidance == 2:
-                steering_angle = angle
-                avoidance = 0
-            else:
-                steering_angle = 0
-        elif len(contoursL) ** 2 >= 16:
+        if len(contoursL) ** 2 >= 16:
             lane_left = False
             cv2.putText(
                 img, "Position : Right Lane", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (102, 255, 0), 2, cv2.LINE_AA
             )
             if avoidance == 1:
-                if minimum_distance <= 5:
+                if minimum_distance <= 10:
                     speed = speed - 4
                     steering_angle = 6
                 else:
-                    steering_angle = 0.6
+                    steering_angle = 1.059999985  # kearah kiri
                 obstacle()
             else:
-                avoidance = 0
                 steering_angle = 0
-
-        cv2.putText(
-            img,
-            "Obstacle number : " + str(obstacle_number),
-            (10, 270),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (102, 255, 0),
-            2,
-            cv2.LINE_AA,
-        )
-
+        elif len(contoursL) ** 2 <= 9:
+            lane_left = True
+            cv2.putText(
+                img, "Position : Left Lane", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (102, 255, 0), 2, cv2.LINE_AA
+            )
+            # if minimum_distance <= 20:
+            # steering_angle = -0.4
+            # obstacle()
+            if avoidance == 2:
+                steering_angle = -0.08999464768  # kearah kanan
+                avoidance = 0
+            else:
+                steering_angle = 0
         return birdseye, birdseyeLeft, birdseyeRight, minv
 
     def plotHistogram(inpImage):
@@ -391,34 +347,32 @@ def callback(data):
         track_detected = False
         pass
     if lane_left == True:
-        speed = speed + 10
+        speed = 8
     else:
-        speed = speed + 12
+        speed = 9
     factor = 0.09
     speed = speed - abs(deviation) ** 2
     if curveRad <= 400:
-        speed = 8
-        factor = 0.04
-        print("Case 1", end="\r")
+        speed = 7.4
+        factor = 0.06
+        # print("Case 1", end ='\r')
     elif curveRad <= 450:
         speed = 8.6
-        factor = 0.05
-        print("Case 2", end="\r")
+        factor = 0.07
+        # print("Case 2", end ='\r')
     elif curveRad <= 500:
-        speed = 9
-        factor = 0.06
-        print("Case 3", end="\r")
-    else:
-        print("Case 0", end="\r")
+        speed = 8
+        factor = 0.08
+        # print("Case 3", end ='\r')
+    # else:
+    # print("Case 0", end ='\r')
 
     if curveRad <= 300 and deviation <= 1.5:
         speed = 7
-        factor = 0.03
-        print("Case 4", end="\r")
+        factor = 0.06
     elif curveRad <= 600 and deviation <= 1:
         speed = 10
-        factor = 0.04
-        print("Case 5", end="\r")
+        factor = 0.06
 
     if abs(deviation) <= 0.2 and curveRad >= 1000:
         speed = speed + 2
@@ -452,7 +406,7 @@ def callback(data):
         cv2.LINE_AA,
     )
     # cv2.imshow("Camera View", img)
-    cv2.imshow("Camera View", finalImg)
+    # cv2.imshow("Camera View", finalImg)
     cv2.waitKey(1)
 
 
